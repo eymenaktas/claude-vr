@@ -1,0 +1,76 @@
+<!doctype html>
+<html lang="tr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Sahte oturum - Claude</title>
+<style>
+  body { margin: 0; background: #262624; color: #f5f4ee; font: 15px/1.5 system-ui; }
+  main { max-width: 760px; margin: 0 auto; padding: 24px 16px 140px; }
+  .msg { padding: 12px 0; border-bottom: 1px solid #3a3936; }
+  form { position: fixed; left: 0; right: 0; bottom: 0; padding: 12px 16px; background: #30302e; display: flex; gap: 8px; }
+  [contenteditable] { flex: 1; min-height: 40px; padding: 8px 10px; background: #262624; border-radius: 10px; }
+  button { background: #3a3936; color: inherit; border: 0; border-radius: 8px; padding: 8px 12px; }
+  #stop[hidden] { display: none; }
+</style>
+</head>
+<body>
+<!-- claude.ai'deki düğmeleri taklit eden test sayfası: Dictate metin yazar, Send 3 sn "çalışır",
+     sonra Read aloud düğmeli bir yanıt ekler; Read aloud bir ses tonu çalar. -->
+<main id="log">
+  <div class="msg">Merhaba! Bu sahte bir Claude oturumu.</div>
+</main>
+<form onsubmit="return false">
+  <div contenteditable="true" id="composer"></div>
+  <button type="button" aria-label="Dictate" id="dict">🎤</button>
+  <button type="button" aria-label="Send" id="send">Gönder</button>
+  <button type="button" data-testid="code-prompt-stop" id="stop" hidden>Stop</button>
+</form>
+<script>
+const $ = (id) => document.getElementById(id);
+let dictTimer = null, stream = null;
+$("dict").onclick = async () => {
+  if (dictTimer) { clearInterval(dictTimer); dictTimer = null; $("dict").setAttribute("aria-label", "Dictate"); stream && stream.getTracks().forEach(t => t.stop()); return; }
+  try { stream = await navigator.mediaDevices.getUserMedia({ audio: true }); } catch (e) { console.log("mic yok", e.message); }
+  $("dict").setAttribute("aria-label", "Stop dictation");
+  const words = "Projedeki son değişiklikleri özetler misin".split(" ");
+  let i = 0;
+  dictTimer = setInterval(() => {
+    if (i < words.length) $("composer").innerText = words.slice(0, ++i).join(" ");
+  }, 250);
+};
+$("send").onclick = () => {
+  const text = $("composer").innerText.trim();
+  if (!text) return;
+  $("log").insertAdjacentHTML("beforeend", `<div class="msg"><b>Sen:</b> ${text}</div>`);
+  $("composer").innerText = "";
+  $("stop").hidden = false;
+  setTimeout(() => {
+    $("stop").hidden = true;
+    const div = document.createElement("div");
+    div.className = "msg";
+    div.innerHTML = `<div class="prose">Son değişiklikler: giriş akışı düzeltildi. Sesli mod eklendi ve logo güncellendi. Testler henüz çalıştırılmadı.</div>
+      <button data-testid="epitaxy-read-aloud" aria-label="Read aloud">🔊</button>`;
+    div.querySelector("button").onclick = playTone;
+    $("log").append(div);
+  }, 3000);
+};
+function playTone() {
+  // 4 saniyelik dalgalanan ton: <audio> elemanı ile çalınır (gerçek "Read aloud" gibi).
+  const sr = 22050, secs = 4, n = sr * secs;
+  const buf = new ArrayBuffer(44 + n * 2), v = new DataView(buf);
+  const w = (o, s) => [...s].forEach((c, i) => v.setUint8(o + i, c.charCodeAt(0)));
+  w(0, "RIFF"); v.setUint32(4, 36 + n * 2, true); w(8, "WAVEfmt "); v.setUint32(16, 16, true);
+  v.setUint16(20, 1, true); v.setUint16(22, 1, true); v.setUint32(24, sr, true); v.setUint32(28, sr * 2, true);
+  v.setUint16(32, 2, true); v.setUint16(34, 16, true); w(36, "data"); v.setUint32(40, n * 2, true);
+  for (let i = 0; i < n; i++) {
+    const t = i / sr, env = 0.5 + 0.5 * Math.sin(t * 9);
+    v.setInt16(44 + i * 2, Math.sin(2 * Math.PI * 220 * t) * env * 9000, true);
+  }
+  const a = new Audio(URL.createObjectURL(new Blob([buf], { type: "audio/wav" })));
+  a.play();
+}
+</script>
+<script src="../android/assets/overlay.js"></script>
+</body>
+</html>
