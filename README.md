@@ -1,38 +1,57 @@
-# Claude VR
+<p align="center">
+  <img src="docs/banner.png" alt="Claude VR — Meta Quest için sesli Claude Code" width="100%">
+</p>
 
-Meta Quest için sesli Claude Code. Gözlükteyken, hatta oyun oynarken, Mac'inde çalışan Claude Code oturumlarıyla (Remote Control dahil) konuşursun. Claude cevabını kendi sesiyle okur, altyazı alt kısımda akar.
+<p align="center">
+  <img alt="Platform" src="https://img.shields.io/badge/platform-Meta%20Quest-1f1e1d?style=flat-square">
+  <img alt="Android" src="https://img.shields.io/badge/Android-WebView-1f1e1d?style=flat-square">
+  <img alt="Lisans" src="https://img.shields.io/badge/lisans-MIT-d97757?style=flat-square">
+</p>
 
+<p align="center">
+  Gözlükteyken, hatta oyun oynarken, Mac'inde çalışan <b>Claude Code</b> oturumlarıyla sesle konuş.<br>
+  Claude cevabını kendi sesiyle okur, altyazı ekranın altında akar.
+</p>
+
+> [!NOTE]
 > Resmî bir Anthropic ürünü değildir, Anthropic ile bağlantısı yoktur. claude.ai'nin web arayüzünü kendi hesabınla kullanır.
 
-## Ne yapar
+---
 
-- **Tıklamasız sesli döngü.** Konuşursun, sustuğunda mesaj gider. Claude bitirince cevabı okur, sonra yine dinler.
-- **"Hey Claude" modu.** Arkada sürekli dinler, yalnızca "Hey Claude" ile başlayan sözleri gönderir. İstersen "her şeyi" moduna geçip doğrudan konuşabilirsin. Claude çalışırken de duyar, mesaj sıraya girer.
-- **Ara mesajları da okur.** Claude çalışırken yazdığı her ara notu, claude.ai'nin "Read aloud" sesiyle (44,1 kHz) okur. Bitince yalnızca okunmamış kısmı okur.
-- **Araya girme.** Claude konuşurken konuşmaya başlarsan susar ve seni dinler.
-- **Claude'un kendi diktesi.** Remote Control oturumlarında Dictate düğmesi olmadığından dikte, arkada açık duran görünmez bir claude.ai sayfasında yapılır ve metin oturuma aktarılır.
-- **İzin istekleri ekranda.** Claude bir işlem için izin isterse kart çıkar, onaylayabilirsin.
-- **Ekranı görme (isteğe bağlı).** "Ekranı göster" açıkken mesajlara gözlükteki görüntünün son 5 saniyesinden kareler eklenir.
-- **Görsel / video gösterme.** Mac'teki ajan `tools/goster.sh <dosya|url> [başlık]` ile gözlükteki pencerede resim, video, YouTube ya da HTML sayfası açar (`--kapat` ile kapatır). Yerel dosyalar adb ile gözlüğe kopyalanır.
-- **Bildirim.** Uygulama öndeyken değilse, Claude bitirince ya da izin isteyince bildirim gelir.
-- **Son oturum.** Uygulama en son kullandığın oturumla açılır. Pencere boyutlandırılabilir, oyunun üstünde durabilir.
-- **Claude'a VR'dan konuştuğunu söyler.** Dikteyle giden mesajların sonuna "— Quest'ten sesli" eklenir. Ajan kurallarında buna göre kısa, sesli okunmaya uygun cevap istenebilir.
+## Neler yapar
 
-## Yapı
+| | |
+|---|---|
+| 🎙️ **Tıklamasız konuşma** | Konuşursun, sustuğunda mesaj gider. Claude bitirince cevabı okur, sonra yine dinler. |
+| 👋 **"Hey Claude"** | Arkada sürekli dinler, yalnızca "Hey Claude" ile başlayan sözleri gönderir. Tek dokunuşla "her şeyi duy" moduna geçer. |
+| 🔊 **Claude'un kendi sesi** | claude.ai'nin "Read aloud" sesi (44,1 kHz). Claude çalışırken yazdığı ara notları da anında okur. |
+| ✋ **Araya girme** | Claude konuşurken konuşmaya başlarsan susar ve seni dinler. |
+| 🎮 **Oyunun üstünde** | Seamless Multitasking penceresinde durur. Mikrofon, oyun öndeyken de açık kalır. |
+| 🖼️ **Görsel ve video** | Mac'teki ajan gözlükteki pencerede resim, video, YouTube ya da HTML sayfası açabilir. |
+| 👀 **Ekranı görme** | İstersen mesaja gözlükteki görüntünün son 5 saniyesinden kareler eklenir. |
+| ✅ **İzin kartı** | Claude bir işlem için izin isterse ekranda kart çıkar, oradan onaylarsın. |
+| 🔔 **Bildirim** | Uygulama önde değilken Claude bitirince ya da izin isteyince bildirim gelir. |
+| ↩️ **Son oturum** | Uygulama en son kullandığın oturumla açılır. |
 
+## Nasıl çalışır
+
+```mermaid
+flowchart LR
+  subgraph Quest["Meta Quest — Claude VR"]
+    Mic["🎙️ Mikrofon"] --> Helper["Görünmez dikte sayfası<br/>(claude.ai/new)"]
+    Helper -->|metin| Overlay["Sesli mod<br/>(claude.ai/code üstünde)"]
+    Overlay -->|metin| TTS["claude.ai TTS"] --> Spk["🔊 Hoparlör"]
+    Viewer["🖼️ Gösterici"]
+  end
+  Overlay <-->|Remote Control| Mac["💻 Mac'teki<br/>Claude Code oturumu"]
+  Mac -->|adb: goster.sh| Viewer
 ```
-android/   Quest uygulaması (WebView + enjekte edilen sesli mod)
-  assets/overlay.js         sesli mod: arayüz, durum makinesi, TTS oynatıcı
-  assets/dictate-helper.js  görünmez dikte sayfası (claude.ai/new)
-  src/…/MainActivity.java   WebView, köprü, izinler
-  src/…/MicService.java     oyun öndeyken mikrofonu koruyan ön plan servisi
-  src/…/ScreenCaptureService.java  ekran kareleri (MediaProjection)
-  src/…/WhisperClient.java  isteğe bağlı: kendi mikrofonu + Mac'teki whisper-server, araya girme algılama
-mac/       İsteğe bağlı menü çubuğu uygulaması: Quest isteyince whisper-server'ı başlatır
-mock/      Yerel test için sahte claude.ai sayfası
-```
 
-## Derleme
+- **Dikte**, claude.ai'nin kendi "Dictate" özelliğiyle yapılır. Remote Control oturumlarında bu düğme yok. Bu yüzden arkada görünmez bir `claude.ai/new` sayfası açık durur; dikte orada yapılır, metin oturumun yazı kutusuna aktarılır.
+- **Ses**, Read aloud'un kullandığı TTS kanalından akış olarak gelir ve doğrudan çalınır. Düğmeye basmayı beklemez, ara mesajlar da okunur.
+- Sesle giden her mesajın sonuna **`— Quest'ten sesli`** eklenir. Ajan kurallarına bir satır ekleyerek Claude'dan kısa ve sesli okunmaya uygun cevap isteyebilirsin.
+
+## Kurulum
 
 Gradle gerekmez. Android SDK (platform 36, build-tools) ve JDK 17+ yeter.
 
@@ -41,19 +60,41 @@ cd android && ./build.sh
 adb install -r build/claude-ses.apk
 ```
 
-İlk derlemede `~/.android/claude-ses.keystore` ve yanında şifre dosyası oluşturulur. Quest'te geliştirici modu açık olmalı. Uygulama "Bilinmeyen kaynaklar" altında görünür.
+- Quest'te **geliştirici modu** açık olmalı. Uygulama "Bilinmeyen kaynaklar" altında görünür.
+- İlk derlemede `~/.android/claude-ses.keystore` ve yanında şifre dosyası oluşturulur. Bu dosyalar depoya girmez.
+- İlk açılışta claude.ai'ye giriş yap, mikrofon ve bildirim izinlerini ver. Sonra bir Claude Code oturumu aç; sesli mod kendiliğinden başlar.
 
-İsteğe bağlı Mac sunucusu (whisper.cpp ve `ggml-large-v3-turbo-q5_0.bin` modeli gerekir):
+## Mac'ten görsel göstermek
 
 ```bash
-cd mac && ./build.sh
+tools/goster.sh resim.png "Başlık"      # yerel dosya: önce gözlüğe kopyalanır
+tools/goster.sh https://…/video.mp4    # resim, video, YouTube ya da sayfa URL'si
+tools/goster.sh --kapat
 ```
 
-## Notlar
+Betik kablosuz adb kullanır (varsayılan `192.168.1.12:5555`; `ANDROID_SERIAL` ile değiştir). Gözlük yeniden başlarsa kablosuz adb kapanır: bir kez USB ile bağlayıp `adb tcpip 5555` çalıştır.
 
-- claude.ai'nin arayüzü değiştikçe seçiciler (`data-testid`, `aria-label`) güncellenmeli.
-- Quest'in yerleşik konuşma tanıma ve seslendirme servisleri yalnızca İngilizce. Bu yüzden Türkçe için claude.ai'nin kendi diktesi ve sesi kullanılıyor.
+## Proje yapısı
+
+```
+android/
+  assets/overlay.js           sesli mod: arayüz, durum makinesi, TTS oynatıcı
+  assets/dictate-helper.js    görünmez dikte sayfası (claude.ai/new)
+  src/…/MainActivity.java     WebView, köprü, izinler, görsel/video gösterici
+  src/…/MicService.java       oyun öndeyken mikrofonu koruyan ön plan servisi
+  src/…/ScreenCaptureService  ekran kareleri (MediaProjection)
+  src/…/WhisperClient.java    deneysel: Mac'teki whisper-server ile dikte, araya girme algılama
+mac/                          deneysel: whisper-server'ı başlatan menü çubuğu uygulaması
+tools/goster.sh               Mac'ten gözlükte görsel/video gösterme
+mock/                         yerel test için sahte claude.ai sayfası
+```
+
+## Bilinen sınırlar
+
+- claude.ai'nin arayüzü değiştikçe seçicilerin (`data-testid`, `aria-label`) güncellenmesi gerekir.
+- Quest'in yerleşik konuşma tanıma ve seslendirme servisleri yalnızca İngilizce. Türkçe için claude.ai'nin kendi diktesi ve sesi kullanılıyor.
+- Claude'un resmî Android uygulaması Quest'te açılmıyor (Play Integrity). Bu proje bu yüzden web arayüzünü kullanıyor.
 
 ## Lisans
 
-MIT
+[MIT](LICENSE) © Eymen Aktaş
