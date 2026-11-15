@@ -13,6 +13,7 @@ Meta Quest için sesli Claude Code. Gözlükteyken, hatta oyun oynarken, Mac'ind
 - **Claude'un kendi diktesi.** Remote Control oturumlarında Dictate düğmesi olmadığından dikte, arkada açık duran görünmez bir claude.ai sayfasında yapılır ve metin oturuma aktarılır.
 - **İzin istekleri ekranda.** Claude bir işlem için izin isterse kart çıkar, onaylayabilirsin.
 - **Ekranı görme (isteğe bağlı).** "Ekranı göster" açıkken mesajlara gözlükteki görüntünün son 5 saniyesinden kareler eklenir.
+- **Görsel / video gösterme.** Mac'teki ajan `tools/goster.sh <dosya|url> [başlık]` ile gözlükteki pencerede resim, video, YouTube ya da HTML sayfası açar (`--kapat` ile kapatır). Yerel dosyalar adb ile gözlüğe kopyalanır.
 - **Bildirim.** Uygulama öndeyken değilse, Claude bitirince ya da izin isteyince bildirim gelir.
 - **Son oturum.** Uygulama en son kullandığın oturumla açılır. Pencere boyutlandırılabilir, oyunun üstünde durabilir.
 - **Claude'a VR'dan konuştuğunu söyler.** Dikteyle giden mesajların sonuna "— Quest'ten sesli" eklenir. Ajan kurallarında buna göre kısa, sesli okunmaya uygun cevap istenebilir.

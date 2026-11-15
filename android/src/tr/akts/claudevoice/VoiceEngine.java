@@ -40,6 +40,11 @@ class VoiceEngine {
     VoiceEngine(Activity act, Events ev) {
         this.act = act;
         this.ev = ev;
+    }
+
+    // Quest'in seslendirme servisi yalnızca İngilizce ve açılışı ağır (ANR'ye katkı): yalnızca istenince bağlan.
+    private void ensureTts() {
+        if (tts != null) return;
         tts = new TextToSpeech(act, status -> {
             ttsReady = status == TextToSpeech.SUCCESS;
             if (!ttsReady) ttsError = "init " + status;
@@ -116,6 +121,7 @@ class VoiceEngine {
     // ---------- Seslendirme ----------
 
     String info() {
+        ensureTts();
         JSONObject o = new JSONObject();
         try {
             o.put("ready", ttsReady);
@@ -135,6 +141,7 @@ class VoiceEngine {
     }
 
     boolean speak(String text, String id, boolean queue) {
+        ensureTts();
         if (!ttsReady) return false;
         Bundle p = new Bundle();
         return tts.speak(text, queue ? TextToSpeech.QUEUE_ADD : TextToSpeech.QUEUE_FLUSH, p, id) == TextToSpeech.SUCCESS;

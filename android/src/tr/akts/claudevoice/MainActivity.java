@@ -60,6 +60,7 @@ public class MainActivity extends Activity {
         web.setBackgroundColor(Color.parseColor("#262624"));
         root.addView(web, new FrameLayout.LayoutParams(FrameLayout.LayoutParams.MATCH_PARENT, FrameLayout.LayoutParams.MATCH_PARENT));
         setContentView(root);
+        root.post(() -> handleMediaIntent(getIntent()));
 
         configure(web);
         CookieManager cm = CookieManager.getInstance();
@@ -203,7 +204,101 @@ public class MainActivity extends Activity {
     @Override
     protected void onNewIntent(Intent intent) {
         super.onNewIntent(intent);
+        if (handleMediaIntent(intent)) return;
         if (intent.getData() != null) web.loadUrl(intent.getData().toString());
+    }
+
+    // ---- Görsel / video gösterici --------------------------------------------------------
+    // Mac'teki ajan adb ile tetikler:
+    //   adb shell am start -n tr.akts.claudevoice/.MainActivity -a tr.akts.claudevoice.SHOW --es url <url|dosya> [--es title <başlık>]
+    //   adb shell am start -n tr.akts.claudevoice/.MainActivity -a tr.akts.claudevoice.HIDE
+    // Yerel dosyalar adb push ile getExternalFilesDir(null)/media/ altına konur; url olarak dosya adı verilebilir.
+    static final String ACTION_SHOW = "tr.akts.claudevoice.SHOW";
+    static final String ACTION_HIDE = "tr.akts.claudevoice.HIDE";
+    private FrameLayout mediaLayer;
+    private WebView mediaView;
+
+    private boolean handleMediaIntent(Intent intent) {
+        if (intent == null || intent.getAction() == null) return false;
+        if (ACTION_HIDE.equals(intent.getAction())) { hideMedia(); return true; }
+        if (!ACTION_SHOW.equals(intent.getAction())) return false;
+        String url = intent.getStringExtra("url");
+        if (url == null && intent.getData() != null) url = intent.getData().toString();
+        if (url == null || url.isEmpty()) return true;
+        showMedia(url, intent.getStringExtra("title"));
+        return true;
+    }
+
+    private static String esc(String s) {
+        return s.replace("&", "&amp;").replace("<", "&lt;").replace(">", "&gt;").replace("\"", "&quot;");
+    }
+
+    private void showMedia(String url, String title) {
+        if (!url.matches("^(https?|file|content|data):.*")) {
+            java.io.File f = url.startsWith("/") ? new java.io.File(url) : new java.io.File(new java.io.File(getExternalFilesDir(null), "media"), url);
+            url = Uri.fromFile(f).toString();
+        }
+        String lower = url.toLowerCase(java.util.Locale.ROOT).replaceAll("[?#].*$", "");
+        boolean video = lower.matches(".*\\.(mp4|webm|mov|m4v|mkv|3gp)$") || lower.contains("youtube.com/") || lower.contains("youtu.be/");
+        boolean page = !video && !lower.matches(".*\\.(png|jpe?g|gif|webp|bmp|svg|avif)$") && !lower.startsWith("data:image");
+        if (mediaLayer == null) {
+            mediaLayer = new FrameLayout(this);
+            mediaLayer.setBackgroundColor(Color.rgb(20, 20, 19));
+            mediaView = new WebView(this);
+            WebSettings ms = mediaView.getSettings();
+            ms.setJavaScriptEnabled(true);
+            ms.setDomStorageEnabled(true);
+            ms.setAllowFileAccess(true);
+            ms.setMediaPlaybackRequiresUserGesture(false);
+            ms.setLoadWithOverviewMode(true);
+            ms.setUseWideViewPort(true);
+            mediaView.setBackgroundColor(Color.rgb(20, 20, 19));
+            mediaView.setWebChromeClient(new WebChromeClient());
+            mediaView.setWebViewClient(new WebViewClient());
+            mediaLayer.addView(mediaView, new FrameLayout.LayoutParams(FrameLayout.LayoutParams.MATCH_PARENT, FrameLayout.LayoutParams.MATCH_PARENT));
+            android.widget.TextView close = new android.widget.TextView(this);
+            close.setText("\u2715");
+            close.setTextSize(26);
+            close.setTextColor(Color.WHITE);
+            close.setGravity(android.view.Gravity.CENTER);
+            android.graphics.drawable.GradientDrawable bg = new android.graphics.drawable.GradientDrawable();
+            bg.setShape(android.graphics.drawable.GradientDrawable.OVAL);
+            bg.setColor(Color.argb(200, 217, 119, 87));
+            close.setBackground(bg);
+            close.setOnClickListener(v -> hideMedia());
+            FrameLayout.LayoutParams lp = new FrameLayout.LayoutParams(96, 96, android.view.Gravity.TOP | android.view.Gravity.END);
+            lp.setMargins(0, 24, 24, 0);
+            mediaLayer.addView(close, lp);
+        }
+        if (mediaLayer.getParent() == null) root.addView(mediaLayer, new FrameLayout.LayoutParams(FrameLayout.LayoutParams.MATCH_PARENT, FrameLayout.LayoutParams.MATCH_PARENT));
+        mediaLayer.bringToFront();
+        if (page) {
+            mediaView.loadUrl(url);
+        } else {
+            String t = title == null ? "" : "<div class=t>" + esc(title) + "</div>";
+            String el;
+            String yt = null;
+            java.util.regex.Matcher m = java.util.regex.Pattern.compile("(?:youtube\\.com/(?:watch\\?v=|shorts/|embed/)|youtu\\.be/)([\\w-]{6,})").matcher(url);
+            if (m.find()) yt = m.group(1);
+            if (yt != null) el = "<iframe src=\"https://www.youtube.com/embed/" + yt + "?autoplay=1&playsinline=1\" allow=\"autoplay; encrypted-media; fullscreen\" allowfullscreen></iframe>";
+            else if (video) el = "<video src=\"" + esc(url) + "\" controls autoplay playsinline></video>";
+            else el = "<img src=\"" + esc(url) + "\">";
+            String html = "<!doctype html><meta name=viewport content='width=device-width,initial-scale=1'><style>"
+                    + "html,body{margin:0;height:100%;background:#141413;color:#faf9f5;font:20px system-ui}"
+                    + "body{display:flex;flex-direction:column;align-items:center;justify-content:center;gap:12px}"
+                    + "img,video{max-width:100%;max-height:calc(100% - 64px);object-fit:contain;border-radius:12px}"
+                    + "iframe{width:100%;height:calc(100% - 64px);border:0}"
+                    + ".t{opacity:.85}</style>" + el + t;
+            mediaView.loadDataWithBaseURL(url.startsWith("file:") ? "file:///" : "https://claude-ses.local/", html, "text/html", "utf-8", null);
+        }
+        emit("media-show", VoiceEngine.q(url));
+    }
+
+    private void hideMedia() {
+        if (mediaLayer == null || mediaLayer.getParent() == null) return;
+        mediaView.loadUrl("about:blank");
+        root.removeView(mediaLayer);
+        emit("media-hide", "\"\"");
     }
 
     @Override

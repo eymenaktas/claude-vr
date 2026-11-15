@@ -8,20 +8,29 @@
   const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 
   // Mikrofon seviyesi (ana sayfadaki logonun titremesi için).
-  let analyser = null, buf = null, actx = null;
+  // Tek AudioContext: her dikte başlangıcında yenisini açmak Chromium'un 10 ses akışı sınırını
+  // dolduruyor ve bir süre sonra süreçteki tüm ses (dikte + okuma) kesiliyordu.
+  let analyser = null, buf = null, actx = null, src = null;
   const gum = navigator.mediaDevices && navigator.mediaDevices.getUserMedia && navigator.mediaDevices.getUserMedia.bind(navigator.mediaDevices);
   if (gum) {
     navigator.mediaDevices.getUserMedia = async (c) => {
       const s = await gum(c);
       try {
         if (s.getAudioTracks().length) {
-          const ctx = actx = new AudioContext();
-          ctx.resume().catch(() => {});
-          analyser = ctx.createAnalyser();
-          analyser.fftSize = 512;
-          buf = new Float32Array(analyser.fftSize);
-          ctx.createMediaStreamSource(s).connect(analyser);
-          s.getAudioTracks()[0].addEventListener("ended", () => { analyser = null; });
+          if (!actx || actx.state === "closed") actx = new AudioContext();
+          actx.resume().catch(() => {});
+          if (src) { try { src.disconnect(); } catch (_) {} }
+          if (!analyser) {
+            analyser = actx.createAnalyser();
+            analyser.fftSize = 512;
+            buf = new Float32Array(analyser.fftSize);
+          }
+          const mine = src = actx.createMediaStreamSource(s);
+          mine.connect(analyser);
+          s.getAudioTracks()[0].addEventListener("ended", () => {
+            try { mine.disconnect(); } catch (_) {}
+            if (src === mine) src = null;
+          });
         }
       } catch (_) {}
       return s;

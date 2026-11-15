@@ -11,7 +11,7 @@
 
   // ---------- Ayarlar ----------
   const CFG = {
-    silenceMs: 1400,          // konuşma bittikten sonra bu kadar sessizlik → gönder
+    silenceMs: 2000,          // konuşma bittikten sonra bu kadar sessizlik → gönder
     minSpeechMs: 350,         // bundan kısa sesler konuşma sayılmaz
     composerSettleMs: 700,    // dikte metni bu kadar değişmeyince hazır say
     startTimeoutMs: 6000,     // gönderdikten sonra Claude'un başlamasını bekleme süresi
@@ -269,7 +269,8 @@
     },
     hideSoon() { [60, 250, 600].forEach((ms) => setTimeout(() => kb.hide(), ms)); },
   };
-  const voiceOpen = () => !!(ui.stage && ui.stage.classList.contains("open"));
+  // "Sayfayı göster" sahneyi yalnızca gizler (peek); sesli mod sürer. Yalnızca kapat düğmesi durdurur.
+  const voiceOpen = () => !!(ui.stage && (ui.stage.classList.contains("open") || (CS.peek && !CS.userClosed)));
 
   // ---------- Uygulama köprüsü: görünmez dikte sayfası, bildirim, odak ----------
   const native = window.ClaudeSesNative || null;
@@ -360,7 +361,7 @@
   const click = (el) => {
     if (!el) return false;
     const r = clickRaw(el);
-    if (voiceOpen()) { kb.suppress(true); kb.hideSoon(); }
+    if (ui.stage && ui.stage.classList.contains("open")) { kb.suppress(true); kb.hideSoon(); }
     return r;
   };
   const clickRaw = (el) => {
@@ -549,9 +550,9 @@
         ui.status),
       ui.subs,
       h("div", { class: "controls" },
-        h("button", { class: "btn", "aria-label": "Sayfayı göster", on: { click: () => hideStage() } }, ICON.page()),
+        h("button", { class: "btn", "aria-label": "Sayfayı göster", on: { click: () => { CS.peek = true; hideStage(); } } }, ICON.page()),
         ui.mainBtn,
-        h("button", { class: "btn", "aria-label": "Sesli modu kapat", on: { click: () => { machine.stop(); hideStage(); } } }, ICON.close()))
+        h("button", { class: "btn", "aria-label": "Sesli modu kapat", on: { click: () => { CS.userClosed = true; CS.peek = false; machine.stop(); hideStage(); } } }, ICON.close()))
     );
 
     ui.cardTitle = h("h3", { text: "İzin gerekiyor" });
@@ -635,7 +636,26 @@
     toastTimer = setTimeout(() => ui.toast.classList.remove("show"), ms);
   };
 
+  // Mesaj gidince anında kısa, yumuşak iki notalık "aldım" sesi (Claude'un ilk notunu beklemeden geri bildirim).
+  const earcon = () => {
+    try {
+      const c = ensureCtx(); if (!c) return;
+      if (c.state === "suspended") c.resume();
+      const now = c.currentTime;
+      [[660, 0], [990, 0.11]].forEach(([f, d]) => {
+        const o = c.createOscillator(), g = c.createGain();
+        o.type = "sine"; o.frequency.value = f;
+        g.gain.setValueAtTime(0.0001, now + d);
+        g.gain.exponentialRampToValueAtTime(0.18, now + d + 0.02);
+        g.gain.exponentialRampToValueAtTime(0.0001, now + d + 0.16);
+        o.connect(g).connect(c.destination); o.start(now + d); o.stop(now + d + 0.18);
+      });
+    } catch (_) {}
+  };
+
   const showStage = (startListening) => {
+    CS.userClosed = false;
+    CS.peek = false;
     mount();
     ensureCtx();
     ui.stage.classList.add("open");
@@ -1040,6 +1060,7 @@
       const send = page.sendBtn();
       if (!send) { toast("Gönder düğmesi bulunamadı."); this.set("idle"); return; }
       click(send);
+      earcon();
       this.sentAt = performance.now();
       this.sawBusy = false;
       this.idleSince = 0;
@@ -1154,7 +1175,7 @@
       }
       this.set("idle");
       // Eller serbest: arka plan dinlemesi (wake.tick) devralır; yardımcı yoksa eski yol.
-      if (CFG.autoListen && !helper.ok && ui.stage && ui.stage.classList.contains("open")) setTimeout(() => this.listen(), 450);
+      if (CFG.autoListen && !helper.ok && voiceOpen()) setTimeout(() => this.listen(), 450);
     },
 
     answerPermission(ok) {
@@ -1204,7 +1225,7 @@
         // hem yazının hem (okunabiliyorsa) sesin bir süre durmasını bekle.
         const textQuiet = t - this.composerChangedAt;
         const voiceQuiet = t - (this.lastVoice || 0);
-        const done = this.levelWorks ? textQuiet > 1500 && voiceQuiet > CFG.silenceMs : textQuiet > 2200;
+        const done = this.levelWorks ? textQuiet > 2000 && voiceQuiet > CFG.silenceMs : textQuiet > 2600;
         if (this.heardSpeech && cur && done) this.finishListening();
         if (!helper.started && helper.startedAt && t - helper.startedAt > 8000 && !helper.err) {
           helper.startedAt = 0; toast("Dikte başlamadı; tekrar deniyorum."); native.dict("reload");
@@ -1253,7 +1274,7 @@
             if (turn !== st.text) { st.text = turn; st.since = t; }
             const fresh = this.unspokenText();
             // Yeni metin 1,2 sn değişmeden durduysa (paragraf bitti) oku.
-            if (fresh && fresh.length > 12 && turn !== this.turnBefore && t - st.since > 1200) { this.speakWithTts(fresh, "thinking"); return; }
+            if (fresh && fresh.length > 12 && turn !== this.turnBefore && t - st.since > 700) { this.speakWithTts(fresh, "thinking"); return; }
           }
           if (false) {
             const fresh = page.readAloudBtns().filter((b) => !this.readSet.has(b));
@@ -1273,7 +1294,7 @@
           if (doneAfterBusy || neverStarted) {
             this.progressLine = "";
             if (doneAfterBusy && !appFocused()) notifyUser("Claude bitirdi", speakable(page.readableText()) || "Yanıt hazır.");
-            if (ui.stage && ui.stage.classList.contains("open")) this.speakLatest();
+            if (voiceOpen()) this.speakLatest();
             else this.set("idle");
           }
         }
@@ -1353,6 +1374,11 @@
   else boot();
   // SPA içinde gövde yeniden kurulursa arayüzü geri tak.
   setInterval(() => { if (document.body && ui.host && !ui.host.isConnected) document.body.append(ui.host); }, 2000);
+  // Kullanıcı kendisi kapatmadıysa sesli mod oturum sayfasında hep açık kalsın (arka plan dinlemesi buna bağlı).
+  setInterval(() => {
+    if (!CFG.autoListen || CS.userClosed || CS.peek || !CS.autoOpened || !ui.stage) return;
+    if (!ui.stage.classList.contains("open") && page.onSessionPage()) { log("sahne kapanmıştı, yeniden açılıyor"); showStage(false); }
+  }, 1500);
   // Sesli mod düğmesi yalnızca bir oturum sayfasında görünsün (giriş ekranında değil).
   setInterval(() => {
     if (!ui.fab || !ui.stage) return;
