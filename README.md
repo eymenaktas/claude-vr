@@ -20,7 +20,7 @@
 
 ## Neler yapar
 
-| | |
+| Özellik | Ne yapar |
 |---|---|
 | 🎙️ **Tıklamasız konuşma** | Konuşursun, sustuğunda mesaj gider. Claude bitirince cevabı okur, sonra yine dinler. |
 | 👋 **"Hey Claude"** | Arkada sürekli dinler, yalnızca "Hey Claude" ile başlayan sözleri gönderir. Tek dokunuşla "her şeyi duy" moduna geçer. |
