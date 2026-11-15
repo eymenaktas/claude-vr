@@ -1,4 +1,4 @@
-# Claude Ses
+# Claude VR
 
 Meta Quest için sesli Claude Code. Gözlükteyken, hatta oyun oynarken, Mac'inde çalışan Claude Code oturumlarıyla (Remote Control dahil) konuşursun. Claude cevabını kendi sesiyle okur, altyazı alt kısımda akar.
 

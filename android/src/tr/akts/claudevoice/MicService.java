@@ -26,7 +26,7 @@ public class MicService extends Service {
                 new Intent(this, MainActivity.class).addFlags(Intent.FLAG_ACTIVITY_SINGLE_TOP),
                 PendingIntent.FLAG_IMMUTABLE | PendingIntent.FLAG_UPDATE_CURRENT);
         Notification n = new Notification.Builder(this, "dinleme")
-                .setContentTitle("Claude Ses dinliyor")
+                .setContentTitle("Claude VR dinliyor")
                 .setContentText("Oyundayken de seni duyar.")
                 .setSmallIcon(R.drawable.ic_launcher)
                 .setContentIntent(open)

@@ -131,7 +131,7 @@ public class ScreenCaptureService extends Service {
         NotificationChannel ch = new NotificationChannel("ekran", "Ekran paylaşımı", NotificationManager.IMPORTANCE_LOW);
         nm.createNotificationChannel(ch);
         Notification n = new Notification.Builder(this, "ekran")
-                .setContentTitle("Claude Ses ekranı görüyor")
+                .setContentTitle("Claude VR ekranı görüyor")
                 .setContentText("Son 5 saniye mesajlarına eklenebilir.")
                 .setSmallIcon(R.drawable.ic_launcher)
                 .setOngoing(true)
